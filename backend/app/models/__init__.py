@@ -1,14 +1,16 @@
-from app.models import role
-from app.models import user
-from app.models import client
-from app.models import equipment
-from app.models import service
-from app.models import product
-from app.models import inventory
-from app.models import payment
-from app.models import notification
-from app.models import audit
-from app.models import service_item
+from app.models.role import Role
+from app.models.user import User
+from app.models.client import Client
+from app.models.equipment import Equipment
+from app.models.service import Service, ServiceStatus
+from app.models.product import Product
+from app.models.inventory import InventoryMovement
+from app.models.payment import Payment
+from app.models.notification import Notification
+from app.models.audit import Audit
+from app.models.service_item import ServiceItem
+from app.models.invoice import Invoice, InvoiceType, InvoiceStatus, InvoiceItem
+
 
 __all__ = [
     "Role",
@@ -22,5 +24,9 @@ __all__ = [
     "Payment",
     "Notification",
     "Audit",
-    "ServiceItem"
+    "ServiceItem",
+    "Invoice",
+    "InvoiceType",
+    "InvoiceStatus",
+    "InvoiceItem",
 ]

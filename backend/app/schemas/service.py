@@ -1,28 +1,35 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict
+
 from app.models.service import ServiceStatus
-from app.schemas.service_item import ServiceItemResponse    
+from app.schemas.service_item import ServiceItemResponse
 
 
 class ServiceBase(BaseModel):
     cliente_id: int
-    equipo_id: int
+    equipo_id: Optional[int] = None
     tipo_servicio: str
     descripcion: str
     fecha_estimada: Optional[datetime] = None
 
+
 class ServiceCreate(ServiceBase):
     usuario_responsable_id: Optional[int] = None
+    monto: Optional[float] = 0.00
+
 
 class ServiceUpdateStatus(BaseModel):
     estado: ServiceStatus
     diagnostico: Optional[str] = None
     monto: Optional[float] = None
 
+
 class AddProductToService(BaseModel):
     producto_id: int
     cantidad: int
+
 
 class ServiceResponse(ServiceBase):
     id: int
@@ -35,4 +42,5 @@ class ServiceResponse(ServiceBase):
     fecha_finalizacion: Optional[datetime] = None
     created_at: datetime
     items: List[ServiceItemResponse] = []
+
     model_config = ConfigDict(from_attributes=True)

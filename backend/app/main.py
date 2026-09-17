@@ -2,8 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import (
-    auth, users, clients, equipment, services,
-    products, payments, notifications, dashboard, audit
+    auth,
+    users,
+    clients,
+    equipment,
+    services,
+    products,
+    payments,
+    invoices,
+    notifications,
+    dashboard,
+    audit,
 )
 
 app = FastAPI(
@@ -26,6 +35,7 @@ app.include_router(equipment.router, prefix=f"{settings.API_V1_STR}/equipment", 
 app.include_router(services.router, prefix=f"{settings.API_V1_STR}/services", tags=["Services"])
 app.include_router(products.router, prefix=f"{settings.API_V1_STR}/products", tags=["Products"])
 app.include_router(payments.router, prefix=f"{settings.API_V1_STR}/payments", tags=["Payments"])
+app.include_router(invoices.router, prefix=f"{settings.API_V1_STR}/invoices", tags=["Invoices"])
 app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["Notifications"])
 app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["Dashboard"])
 app.include_router(audit.router, prefix=f"{settings.API_V1_STR}/audit", tags=["Audit"])

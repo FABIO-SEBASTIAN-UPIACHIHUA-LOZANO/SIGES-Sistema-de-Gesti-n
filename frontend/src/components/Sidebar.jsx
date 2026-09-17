@@ -14,6 +14,7 @@ import {
   HelpCircle,
   CreditCard,
   Bell,
+  FileText,
 } from "lucide-react";
 
 import { NavLink } from "react-router-dom";
@@ -69,6 +70,15 @@ const menu = [
         icon: CreditCard,
         roles: ["ADMIN", "VENDEDOR"],
       },
+
+      {
+        name: "Comprobantes",
+        path: "/comprobantes",
+        icon: FileText,
+        roles: ["ADMIN", "VENDEDOR"],
+      },
+
+
     ],
   },
 

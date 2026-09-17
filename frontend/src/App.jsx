@@ -25,6 +25,9 @@ import { Users } from "./pages/Users";
 import { Audit } from "./pages/Audit";
 import { ServiceDetail } from "./pages/ServiceDetail";
 
+import { Payments } from "./pages/Payments";
+
+import { Invoices } from "./pages/Invoices";
 
 function getRole(user) {
   return (
@@ -205,6 +208,43 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* =========================
+                PAGOS
+                ADMIN + VENDEDOR
+            ========================== */}
+            <Route
+              path="pagos"
+              element={
+                <ProtectedRoute
+                  roles={[
+                    "ADMIN",
+                    "VENDEDOR",
+                  ]}
+                >
+                  <Payments />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* =========================
+                COMPROBANTES
+                ADMIN + VENDEDOR
+            ========================== */}
+            <Route
+              path="comprobantes"
+              element={
+                <ProtectedRoute
+                  roles={[
+                    "ADMIN",
+                    "VENDEDOR",
+                  ]}
+                >
+                  <Invoices />
+                </ProtectedRoute>
+              }
+            />
+
 
 
             {/* =========================

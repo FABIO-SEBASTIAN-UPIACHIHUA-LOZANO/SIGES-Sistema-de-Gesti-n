@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime, timezone
 
+from app.models.client import Client
+from app.models.equipment import Equipment
+
 from app.db.session import get_db
 from app.models.service import Service, ServiceStatus
 from app.models.service_item import ServiceItem
@@ -78,7 +81,43 @@ def create_service(
         RoleChecker(["ADMIN", "TECNICO"])
     ),
 ):
-    service = Service(**service_in.model_dump())
+    client = (
+        db.query(Client)
+        .filter(Client.id == service_in.cliente_id)
+        .first()
+    )
+
+    if not client:
+        raise HTTPException(
+            status_code=404,
+            detail="Cliente no encontrado",
+        )
+
+    if service_in.equipo_id is not None:
+        equipment = (
+            db.query(Equipment)
+            .filter(
+                Equipment.id == service_in.equipo_id,
+                Equipment.cliente_id == service_in.cliente_id,
+            )
+            .first()
+        )
+
+        if not equipment:
+            raise HTTPException(
+                status_code=400,
+                detail="El equipo no existe o no pertenece al cliente seleccionado",
+            )
+
+    service = Service(
+        cliente_id=service_in.cliente_id,
+        equipo_id=service_in.equipo_id,
+        tipo_servicio=service_in.tipo_servicio,
+        descripcion=service_in.descripcion,
+        fecha_estimada=service_in.fecha_estimada,
+        usuario_responsable_id=service_in.usuario_responsable_id,
+        monto=service_in.monto or 0.00,
+    )
 
     db.add(service)
     db.commit()
@@ -90,11 +129,13 @@ def create_service(
         accion="CREAR",
         entidad="Service",
         entidad_id=service.id,
-        descripcion=f"Orden de Servicio recibida ID #{service.id}",
+        descripcion=(
+            f"Orden de servicio creada #{service.id} "
+            f"tipo={service.tipo_servicio}"
+        ),
     )
 
     return service
-
 
 @router.patch("/{service_id}/status", response_model=ServiceResponse)
 def update_service_status(

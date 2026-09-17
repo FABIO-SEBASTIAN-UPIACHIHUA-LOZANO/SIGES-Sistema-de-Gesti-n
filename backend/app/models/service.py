@@ -39,8 +39,10 @@ class Service(Base):
     cliente_id: Mapped[int] = mapped_column(
         ForeignKey("clients.id"), nullable=False, index=True
     )
-    equipo_id: Mapped[int] = mapped_column(
-        ForeignKey("equipment.id"), nullable=False, index=True
+    equipo_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("equipment.id"),
+        nullable=True,
+        index=True,
     )
     usuario_responsable_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
@@ -105,4 +107,10 @@ class Service(Base):
     )
     notificaciones: Mapped[list["Notification"]] = relationship(
         "Notification", back_populates="servicio"
+    )
+
+    comprobante: Mapped[Optional["Invoice"]] = relationship(
+    "Invoice",
+    back_populates="servicio",
+    uselist=False,
     )
