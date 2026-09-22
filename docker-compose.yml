@@ -1,0 +1,65 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: siges_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-siges_db}
+      POSTGRES_USER: ${POSTGRES_USER:-siges_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siges_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siges_user} -d ${POSTGRES_DB:-siges_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: siges_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-siges_user}:${POSTGRES_PASSWORD:-siges_password}@postgres:5432/${POSTGRES_DB:-siges_db}
+      SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_siges_2026}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 480
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-SIGES}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      PASSWORD_RESET_CODE_MINUTES: ${PASSWORD_RESET_CODE_MINUTES:-10}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: siges_frontend
+    restart: always
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
