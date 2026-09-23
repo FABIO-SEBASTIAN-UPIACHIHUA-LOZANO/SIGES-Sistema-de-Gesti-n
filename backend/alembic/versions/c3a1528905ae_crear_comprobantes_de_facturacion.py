@@ -12,10 +12,6 @@ depends_on = None
 
 
 def upgrade():
-    existing_tables = sa.inspect(op.get_bind()).get_table_names()
-    if "invoices" in existing_tables and "invoice_items" in existing_tables:
-        return
-
     # ============================================================
     # ENUM: tipo de comprobante
     # ============================================================

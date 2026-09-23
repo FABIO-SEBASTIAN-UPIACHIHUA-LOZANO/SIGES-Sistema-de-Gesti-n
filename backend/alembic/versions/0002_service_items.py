@@ -16,9 +16,6 @@ depends_on = None
 
 
 def upgrade():
-    if sa.inspect(op.get_bind()).has_table("service_items"):
-        return
-
     op.create_table(
         "service_items",
 

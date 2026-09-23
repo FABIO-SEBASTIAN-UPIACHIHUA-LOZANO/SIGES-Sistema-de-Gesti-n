@@ -1,4 +1,4 @@
-﻿from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -34,8 +34,8 @@ from app.schemas.invoice import (
     InvoiceListResponse,
     InvoiceResponse,
 )
-from app.core.rbac import RoleChecker
 from app.models.user import User
+from app.api.deps import get_current_user, check_permission
 from app.services.audit_service import log_audit
 
 
@@ -57,16 +57,16 @@ def get_next_invoice_number(
     db: Session,
     tipo_comprobante,
     serie: str,
+    empresa_id: int
 ) -> int:
-    ultimo = (
-        db.query(Invoice)
-        .filter(
-            Invoice.tipo_comprobante == tipo_comprobante,
-            Invoice.serie == serie,
-        )
-        .order_by(Invoice.numero.desc())
-        .first()
+    query = db.query(Invoice).filter(
+        Invoice.tipo_comprobante == tipo_comprobante,
+        Invoice.serie == serie,
     )
+    if empresa_id:
+        query = query.filter(Invoice.empresa_id == empresa_id)
+        
+    ultimo = query.order_by(Invoice.numero.desc()).first()
 
     if not ultimo:
         return 1
@@ -99,15 +99,12 @@ def money_text(value) -> str:
 )
 def list_invoices(
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "VENDEDOR"])
-    ),
+    current_user: User = Depends(check_permission("comprobantes", "ver")),
 ):
-    return (
-        db.query(Invoice)
-        .order_by(Invoice.fecha_emision.desc())
-        .all()
-    )
+    query = db.query(Invoice)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Invoice.empresa_id == current_user.empresa_id)
+    return query.order_by(Invoice.fecha_emision.desc()).all()
 
 
 # ============================================================
@@ -121,18 +118,13 @@ def list_invoices(
 def get_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "VENDEDOR"])
-    ),
+    current_user: User = Depends(check_permission("comprobantes", "ver")),
 ):
-    invoice = (
-        db.query(Invoice)
-        .options(
-            joinedload(Invoice.detalles)
-        )
-        .filter(Invoice.id == invoice_id)
-        .first()
-    )
+    query = db.query(Invoice).options(joinedload(Invoice.detalles)).filter(Invoice.id == invoice_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Invoice.empresa_id == current_user.empresa_id)
+        
+    invoice = query.first()
 
     if not invoice:
         raise HTTPException(
@@ -155,18 +147,14 @@ def get_invoice(
 def create_invoice(
     invoice_in: InvoiceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "VENDEDOR"])
-    ),
+    current_user: User = Depends(check_permission("comprobantes", "crear")),
 ):
-    service = (
-        db.query(Service)
-        .options(
-            joinedload(Service.items)
-        )
-        .filter(Service.id == invoice_in.servicio_id)
-        .first()
-    )
+    empresa_id = current_user.empresa_id or 1
+    srv_query = db.query(Service).options(joinedload(Service.items)).filter(Service.id == invoice_in.servicio_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        srv_query = srv_query.filter(Service.empresa_id == empresa_id)
+        
+    service = srv_query.first()
 
     if not service:
         raise HTTPException(
@@ -229,6 +217,7 @@ def create_invoice(
         db,
         invoice_in.tipo_comprobante,
         serie,
+        empresa_id
     )
 
     cliente_nombre = (
@@ -236,6 +225,7 @@ def create_invoice(
     ).strip()
 
     invoice = Invoice(
+        empresa_id=empresa_id,
         servicio_id=service.id,
         cliente_id=client.id,
         usuario_id=current_user.id,
@@ -311,18 +301,13 @@ def create_invoice(
 def cancel_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN"])
-    ),
+    current_user: User = Depends(check_permission("comprobantes", "editar")),
 ):
-    invoice = (
-        db.query(Invoice)
-        .options(
-            joinedload(Invoice.detalles)
-        )
-        .filter(Invoice.id == invoice_id)
-        .first()
-    )
+    query = db.query(Invoice).options(joinedload(Invoice.detalles)).filter(Invoice.id == invoice_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Invoice.empresa_id == current_user.empresa_id)
+        
+    invoice = query.first()
 
     if not invoice:
         raise HTTPException(
@@ -366,9 +351,7 @@ def cancel_invoice(
 def generate_invoice_pdf(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "VENDEDOR"])
-    ),
+    current_user: User = Depends(check_permission("comprobantes", "ver")),
 ):
     invoice = (
         db.query(Invoice)

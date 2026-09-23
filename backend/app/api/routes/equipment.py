@@ -1,90 +1,57 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.db.session import get_db
 from app.models.equipment import Equipment
 from app.models.client import Client
-from app.schemas.equipment import EquipmentCreate, EquipmentUpdate, EquipmentResponse
-from app.core.rbac import RoleChecker
+from app.schemas.equipment import EquipmentCreate, EquipmentResponse
 from app.models.user import User
+from app.api.deps import get_current_user, check_permission
 from app.services.audit_service import log_audit
 
 router = APIRouter()
 
 @router.get("/", response_model=List[EquipmentResponse])
 def get_equipment(
-    cliente_id: int = None,
+    cliente_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"]))
+    current_user: User = Depends(check_permission("equipos", "ver"))
 ):
     query = db.query(Equipment)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Equipment.empresa_id == current_user.empresa_id)
+        
     if cliente_id:
         query = query.filter(Equipment.cliente_id == cliente_id)
-    return query.all()
+    return query.order_by(Equipment.created_at.desc()).all()
 
-@router.post("/", response_model=EquipmentResponse)
+@router.post("/", response_model=EquipmentResponse, status_code=status.HTTP_201_CREATED)
 def create_equipment(
     eq_in: EquipmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"]))
+    current_user: User = Depends(check_permission("equipos", "crear"))
 ):
-    client = db.query(Client).filter(Client.id == eq_in.cliente_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="El cliente indicado no existe")
+    empresa_id = current_user.empresa_id or 1
+    client_query = db.query(Client).filter(Client.id == eq_in.cliente_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        client_query = client_query.filter(Client.empresa_id == empresa_id)
         
-    equipment = Equipment(**eq_in.model_dump())
+    client = client_query.first()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El cliente indicado no pertenece a su empresa o no existe")
+        
+    equipment = Equipment(**eq_in.model_dump(), empresa_id=empresa_id)
     db.add(equipment)
     db.commit()
     db.refresh(equipment)
     
-    log_audit(db, usuario_id=current_user.id, accion="CREAR", entidad="Equipment", entidad_id=equipment.id, descripcion=f"Equipo registrado: {equipment.tipo} {equipment.marca}")
+    log_audit(
+        db,
+        usuario_id=current_user.id,
+        empresa_id=empresa_id,
+        accion="CREAR_EQUIPO",
+        entidad="Equipment",
+        entidad_id=equipment.id,
+        descripcion=f"Equipo registrado: {equipment.tipo} {equipment.marca} {equipment.modelo}"
+    )
     return equipment
-
-@router.put("/{equipment_id}", response_model=EquipmentResponse)
-def update_equipment(
-    equipment_id: int,
-    eq_in: EquipmentUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"]))
-):
-    equipment = db.query(Equipment).filter(Equipment.id == equipment_id).first()
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
-
-    changes = eq_in.model_dump(exclude_unset=True)
-    if "cliente_id" in changes:
-        client = db.query(Client).filter(Client.id == changes["cliente_id"], Client.activo == True).first()
-        if not client:
-            raise HTTPException(status_code=404, detail="El cliente indicado no existe")
-
-    # IMPLEMENTACIÓN: la actualización usa el mismo modelo y auditoría del
-    # módulo, preservando la arquitectura actual de rutas/servicios.
-    for field, value in changes.items():
-        setattr(equipment, field, value)
-
-    db.commit()
-    db.refresh(equipment)
-    log_audit(db, usuario_id=current_user.id, accion="ACTUALIZAR", entidad="Equipment", entidad_id=equipment.id, descripcion=f"Equipo actualizado ID #{equipment.id}")
-    return equipment
-
-@router.delete("/{equipment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_equipment(
-    equipment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"]))
-):
-    equipment = db.query(Equipment).filter(Equipment.id == equipment_id).first()
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Equipo no encontrado")
-
-    description = f"Equipo eliminado: {equipment.tipo} {equipment.marca} {equipment.modelo}"
-    try:
-        db.delete(equipment)
-        db.flush()
-        log_audit(db, usuario_id=current_user.id, accion="ELIMINAR", entidad="Equipment", entidad_id=equipment_id, descripcion=description)
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="No se puede eliminar el equipo porque tiene servicios asociados")
-    return None

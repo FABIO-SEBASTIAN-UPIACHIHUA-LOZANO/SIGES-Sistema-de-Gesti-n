@@ -12,7 +12,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-def create_access_token(subject: str | Any, role: str, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    subject: str | Any,
+    role: str,
+    empresa_id: Optional[int] = None,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -21,7 +26,8 @@ def create_access_token(subject: str | Any, role: str, expires_delta: Optional[t
     to_encode = {
         "exp": expire,
         "sub": str(subject),
-        "role": role
+        "role": role,
+        "empresa_id": empresa_id,
     }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt

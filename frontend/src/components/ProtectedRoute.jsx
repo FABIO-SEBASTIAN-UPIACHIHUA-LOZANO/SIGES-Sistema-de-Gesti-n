@@ -115,7 +115,7 @@ export function Dashboard() {
         </h1>
 
         <p className="mt-2 text-sm text-slate-500">
-          Resumen de actividad de SIGES.
+          Resumen de actividad de SisTec.
         </p>
 
         <span className="mt-3 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">

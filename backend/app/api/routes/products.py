@@ -4,8 +4,8 @@ from typing import List
 from app.db.session import get_db
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from app.core.rbac import RoleChecker
 from app.models.user import User
+from app.api.deps import get_current_user, check_permission
 from app.services.audit_service import log_audit
 
 router = APIRouter()
@@ -13,67 +13,39 @@ router = APIRouter()
 @router.get("/", response_model=List[ProductResponse])
 def get_products(
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"]))
+    current_user: User = Depends(check_permission("productos", "ver"))
 ):
-    return db.query(Product).filter(Product.activo == True).all()
+    query = db.query(Product).filter(Product.activo == True)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Product.empresa_id == current_user.empresa_id)
+    return query.order_by(Product.created_at.desc()).all()
 
-@router.post("/", response_model=ProductResponse)
+@router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
     prod_in: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN"]))
+    current_user: User = Depends(check_permission("productos", "crear"))
 ):
-    existing = db.query(Product).filter(Product.codigo == prod_in.codigo).first()
+    empresa_id = current_user.empresa_id or 1
+    existing = db.query(Product).filter(
+        Product.empresa_id == empresa_id,
+        Product.codigo == prod_in.codigo
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Código de producto duplicado")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El código de producto ya existe en su catálogo")
         
-    prod = Product(**prod_in.model_dump())
+    prod = Product(**prod_in.model_dump(), empresa_id=empresa_id)
     db.add(prod)
     db.commit()
     db.refresh(prod)
     
-    log_audit(db, usuario_id=current_user.id, accion="CREAR", entidad="Product", entidad_id=prod.id, descripcion=f"Producto creado: {prod.nombre}")
+    log_audit(
+        db,
+        usuario_id=current_user.id,
+        empresa_id=empresa_id,
+        accion="CREAR_PRODUCTO",
+        entidad="Product",
+        entidad_id=prod.id,
+        descripcion=f"Producto creado: {prod.nombre} (Código: {prod.codigo})"
+    )
     return prod
-
-@router.put("/{product_id}", response_model=ProductResponse)
-def update_product(
-    product_id: int,
-    prod_in: ProductUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN"]))
-):
-    product = db.query(Product).filter(Product.id == product_id, Product.activo == True).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-
-    changes = prod_in.model_dump(exclude_unset=True)
-    new_code = changes.get("codigo")
-    if new_code:
-        duplicate = db.query(Product).filter(Product.codigo == new_code, Product.id != product_id).first()
-        if duplicate:
-            raise HTTPException(status_code=400, detail="Código de producto duplicado")
-
-    # IMPLEMENTACIÓN: edición parcial siguiendo el esquema ProductUpdate.
-    for field, value in changes.items():
-        setattr(product, field, value)
-
-    db.commit()
-    db.refresh(product)
-    log_audit(db, usuario_id=current_user.id, accion="ACTUALIZAR", entidad="Product", entidad_id=product.id, descripcion=f"Producto actualizado ID #{product.id}")
-    return product
-
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(RoleChecker(["ADMIN"]))
-):
-    product = db.query(Product).filter(Product.id == product_id, Product.activo == True).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-
-    # IMPLEMENTACIÓN: baja lógica para conservar movimientos de inventario.
-    product.activo = False
-    log_audit(db, usuario_id=current_user.id, accion="ELIMINAR", entidad="Product", entidad_id=product.id, descripcion=f"Producto eliminado: {product.nombre}")
-    db.commit()
-    return None

@@ -10,9 +10,13 @@ import {
   UserCog,
   X,
   ChevronRight,
+  Settings,
+  HelpCircle,
   CreditCard,
   Bell,
   FileText,
+  Building2,
+  KeyRound,
 } from "lucide-react";
 
 import { NavLink } from "react-router-dom";
@@ -20,13 +24,26 @@ import { AuthContext } from "../context/AuthContext";
 
 const menu = [
   {
+    title: "Plataforma SaaS",
+    items: [
+      {
+        name: "Empresas SaaS",
+        path: "/superadmin",
+        icon: Building2,
+        roles: ["SUPERADMIN"],
+        module: "superadmin",
+      },
+    ],
+  },
+  {
     title: "Principal",
     items: [
       {
         name: "Dashboard",
         path: "/",
         icon: LayoutDashboard,
-        roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        roles: ["SUPERADMIN", "ADMIN", "TECNICO", "VENDEDOR"],
+        module: "dashboard",
       },
     ],
   },
@@ -39,6 +56,7 @@ const menu = [
         path: "/servicios",
         icon: Wrench,
         roles: ["ADMIN", "TECNICO"],
+        module: "servicios",
       },
 
       {
@@ -46,13 +64,23 @@ const menu = [
         path: "/clientes",
         icon: Users,
         roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        module: "clientes",
       },
 
       {
         name: "Equipos",
         path: "/equipos",
         icon: MonitorSmartphone,
-        roles: ["ADMIN", "TECNICO"],
+        roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        module: "equipos",
+      },
+
+      {
+        name: "Licencias",
+        path: "/licencias",
+        icon: KeyRound,
+        roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        module: "licencias",
       },
 
       {
@@ -60,6 +88,7 @@ const menu = [
         path: "/productos",
         icon: ShoppingCart,
         roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        module: "productos",
       },
 
       {
@@ -67,6 +96,7 @@ const menu = [
         path: "/pagos",
         icon: CreditCard,
         roles: ["ADMIN", "VENDEDOR"],
+        module: "pagos",
       },
 
       {
@@ -74,6 +104,7 @@ const menu = [
         path: "/comprobantes",
         icon: FileText,
         roles: ["ADMIN", "VENDEDOR"],
+        module: "comprobantes",
       },
 
 
@@ -88,13 +119,15 @@ const menu = [
         path: "/usuarios",
         icon: UserCog,
         roles: ["ADMIN"],
+        module: "usuarios",
       },
 
       {
         name: "Auditoría",
         path: "/auditoria",
         icon: ShieldCheck,
-        roles: ["ADMIN"],
+        roles: ["ADMIN", "SUPERADMIN"],
+        module: "auditoria",
       },
 
       {
@@ -102,6 +135,7 @@ const menu = [
         path: "/notificaciones",
         icon: Bell,
         roles: ["ADMIN", "TECNICO", "VENDEDOR"],
+        module: "notificaciones",
       },
     ],
   },
@@ -113,18 +147,31 @@ const getRoleName = (user) => {
 
 export function Sidebar({ open, onClose }) {
   const { user } = useContext(AuthContext);
+
   const role = getRoleName(user);
 
   const visibleSections = menu
     .map((section) => {
       return {
         ...section,
-        items: section.items.filter((item) =>
-          item.roles.includes(role)
-        ),
+        items: section.items.filter((item) => {
+          // Check role first
+          if (!item.roles.includes(role)) return false;
+          // Check granular permissions if defined
+          if (user?.permisos && item.module && item.module !== "superadmin" && item.module !== "dashboard") {
+            const modPerms = user.permisos[item.module];
+            if (modPerms && modPerms.ver === false) return false;
+          }
+          return true;
+        }),
       };
     })
     .filter((section) => section.items.length > 0);
+
+  const userName =
+    user?.nombre ||
+    user?.email ||
+    "Usuario";
 
   return (
     <>
@@ -176,7 +223,7 @@ export function Sidebar({ open, onClose }) {
 
             <div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                SIGES
+                SisTec
               </h1>
 
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
@@ -207,18 +254,18 @@ export function Sidebar({ open, onClose }) {
 
           <div className="flex items-center gap-3">
 
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white font-semibold text-indigo-600 shadow-sm">
-              ME
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white font-semibold text-indigo-600 shadow-sm uppercase">
+              {String(user?.empresa_nombre || (role === "SUPERADMIN" ? "SAAS" : "ST")).slice(0, 2)}
             </div>
 
             <div className="min-w-0 flex-1">
 
-              <p className="truncate text-sm font-semibold text-slate-800">
-                Mi Empresa
+              <p className="truncate text-sm font-semibold text-slate-800" title={user?.empresa_nombre || "SisTec SaaS"}>
+                {user?.empresa_nombre || (role === "SUPERADMIN" ? "Plataforma Global SaaS" : "SisTec SaaS")}
               </p>
 
               <p className="truncate text-xs text-slate-500">
-                Plan Profesional
+                {role === "SUPERADMIN" ? "Administrador Multi-tenant" : "Organización Activa"}
               </p>
 
             </div>
@@ -332,7 +379,79 @@ export function Sidebar({ open, onClose }) {
 
         </nav>
 
+        {/* ============================================================
+            USUARIO
+        ============================================================ */}
+
+        <div className="border-t border-slate-100 px-4 pt-3">
+
+          <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2.5">
+
+            <div className="flex items-center gap-3">
+
+              {/* Avatar */}
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+
+                {String(userName)
+                  .trim()
+                  .charAt(0)
+                  .toUpperCase()}
+
+              </div>
+
+              {/* Datos */}
+
+              <div className="min-w-0 flex-1">
+
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {userName}
+                </p>
+
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+                  {role}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Configuración */}
+
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
+
+            <Settings className="h-[18px] w-[18px] text-slate-400" />
+
+            <span>
+              Configuración
+            </span>
+
+          </button>
+
+          {/* Centro de ayuda */}
+
+          <button
+            type="button"
+            className="mt-1 mb-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
+
+            <HelpCircle className="h-[18px] w-[18px] text-slate-400" />
+
+            <span>
+              Centro de ayuda
+            </span>
+
+          </button>
+
+        </div>
+
       </aside>
     </>
   );
 }
+

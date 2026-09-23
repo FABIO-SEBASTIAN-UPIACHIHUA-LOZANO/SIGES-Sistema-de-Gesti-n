@@ -58,7 +58,7 @@ export function Dashboard() {
           Bienvenido, {nombre}
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          Resumen operativo y financiero en tiempo real de SIGES.
+          Resumen operativo y financiero en tiempo real de SisTec.
         </p>
         <span className="mt-3 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
           {role}

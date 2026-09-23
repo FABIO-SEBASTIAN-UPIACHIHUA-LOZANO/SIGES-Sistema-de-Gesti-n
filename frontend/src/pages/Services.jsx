@@ -13,11 +13,15 @@ import {
   User,
   Wrench,
   X,
+  Camera,
+  Laptop,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { ImageUploadControl } from "../components/ImageUploadControl";
 
 const SERVICE_TYPES = [
   "Reparación",
@@ -69,6 +73,7 @@ const INITIAL_FORM = {
   fecha_estimada: "",
   usuario_responsable_id: "",
   monto: "",
+  imagen_url: "",
 };
 
 function formatCurrency(value) {
@@ -116,8 +121,8 @@ function Modal({ open, onClose, children }) {
   if (!open) return null;
 
   return (
-    <div className="siges-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-      <div className="siges-modal-panel w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
         {children}
       </div>
     </div>
@@ -143,6 +148,51 @@ export const Services = () => {
   const [modalOpen, setModalOpen] = useState(false);
 
   const [form, setForm] = useState(INITIAL_FORM);
+
+  const [showQuickEquip, setShowQuickEquip] = useState(false);
+  const [savingQuickEquip, setSavingQuickEquip] = useState(false);
+  const [quickEquipForm, setQuickEquipForm] = useState({
+    tipo: "Laptop",
+    marca: "",
+    modelo: "",
+    numero_serie: "",
+    imagen_url: "",
+  });
+
+  const handleQuickCreateEquipment = async (e) => {
+    e.preventDefault();
+    if (!form.cliente_id) return;
+    setSavingQuickEquip(true);
+    try {
+      const res = await api.post("/equipment/", {
+        cliente_id: Number(form.cliente_id),
+        tipo: quickEquipForm.tipo || "Laptop",
+        marca: quickEquipForm.marca || "Genérica",
+        modelo: quickEquipForm.modelo || "Estándar",
+        numero_serie: quickEquipForm.numero_serie || null,
+        imagen_url: quickEquipForm.imagen_url || null,
+      });
+      const newEq = res.data;
+      setEquipment((prev) => [newEq, ...prev]);
+      setForm((prev) => ({
+        ...prev,
+        equipo_id: newEq.id,
+        imagen_url: newEq.imagen_url || prev.imagen_url,
+      }));
+      setShowQuickEquip(false);
+      setQuickEquipForm({
+        tipo: "Laptop",
+        marca: "",
+        modelo: "",
+        numero_serie: "",
+        imagen_url: "",
+      });
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error al registrar el equipo rápido");
+    } finally {
+      setSavingQuickEquip(false);
+    }
+  };
 
   const currentRole =
     typeof user?.rol === "string"
@@ -363,6 +413,7 @@ export const Services = () => {
           form.monto === ""
             ? 0
             : Number(form.monto),
+        imagen_url: form.imagen_url.trim() || null,
       };
 
       await api.post("/services/", payload);
@@ -843,9 +894,9 @@ export const Services = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="siges-modal-form"
+          className="max-h-[75vh] overflow-y-auto"
         >
-          <div className="siges-modal-body space-y-5 p-6">
+          <div className="space-y-5 p-6">
             {error && modalOpen && (
               <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -911,17 +962,100 @@ export const Services = () => {
 
               {/* EQUIPMENT */}
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                  Equipo
-                  <span className="ml-1 font-normal text-slate-400">
-                    opcional
-                  </span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Equipo
+                    <span className="ml-1 font-normal text-slate-400">
+                      opcional
+                    </span>
+                  </label>
+                  {form.cliente_id && (
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickEquip((prev) => !prev)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {showQuickEquip ? "Cancelar registro" : "Registrar nuevo equipo con foto"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Sub-formulario rápido para registrar equipo */}
+                {showQuickEquip && (
+                  <div className="mb-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-3">
+                    <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Laptop className="h-4 w-4 text-indigo-600" />
+                      Registro Rápido de Equipo con Foto
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={quickEquipForm.tipo}
+                        onChange={(e) => setQuickEquipForm((p) => ({ ...p, tipo: e.target.value }))}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      >
+                        <option value="Laptop">Laptop</option>
+                        <option value="PC">PC / Computadora</option>
+                        <option value="Celular">Celular / Smartphone</option>
+                        <option value="Tablet">Tablet</option>
+                        <option value="Monitor">Monitor</option>
+                        <option value="Impresora">Impresora</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Marca (Ej. HP, Dell)"
+                        value={quickEquipForm.marca}
+                        onChange={(e) => setQuickEquipForm((p) => ({ ...p, marca: e.target.value }))}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Modelo (Ej. Pavilion 15)"
+                        value={quickEquipForm.modelo}
+                        onChange={(e) => setQuickEquipForm((p) => ({ ...p, modelo: e.target.value }))}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nº Serie (Opcional)"
+                        value={quickEquipForm.numero_serie}
+                        onChange={(e) => setQuickEquipForm((p) => ({ ...p, numero_serie: e.target.value }))}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Foto URL del equipo (Ej. https://...)"
+                        value={quickEquipForm.imagen_url}
+                        onChange={(e) => setQuickEquipForm((p) => ({ ...p, imagen_url: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleQuickCreateEquipment}
+                      disabled={savingQuickEquip || !quickEquipForm.marca || !quickEquipForm.modelo}
+                      className="w-full rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
+                    >
+                      {savingQuickEquip ? "Guardando equipo..." : "✓ Guardar equipo y vincular al servicio"}
+                    </button>
+                  </div>
+                )}
 
                 <select
                   name="equipo_id"
                   value={form.equipo_id}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    const selectedEq = equipment.find((eq) => eq.id === Number(e.target.value));
+                    if (selectedEq && selectedEq.imagen_url) {
+                      setForm((prev) => ({ ...prev, imagen_url: selectedEq.imagen_url }));
+                    }
+                  }}
                   disabled={!form.cliente_id}
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 >
@@ -947,11 +1081,26 @@ export const Services = () => {
                 {form.cliente_id &&
                   selectedClientEquipment.length ===
                     0 && (
-                    <p className="mt-1.5 text-xs text-amber-600">
-                      Este cliente no tiene equipos
-                      registrados.
-                    </p>
+                    <div className="mt-1.5 flex items-center justify-between text-xs text-amber-600">
+                      <span>Este cliente no tiene equipos registrados.</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickEquip(true)}
+                        className="font-bold underline text-indigo-600 hover:text-indigo-800"
+                      >
+                        + Crear equipo ahora
+                      </button>
+                    </div>
                   )}
+              </div>
+
+              {/* FOTO / IMAGEN DEL EQUIPO EN RECEPCIÓN */}
+              <div className="sm:col-span-2">
+                <ImageUploadControl
+                  value={form.imagen_url}
+                  onChange={(url) => setForm((prev) => ({ ...prev, imagen_url: url }))}
+                  label="Foto / Imagen de Recepción del Equipo"
+                />
               </div>
 
               {/* AMOUNT */}
@@ -1075,7 +1224,7 @@ export const Services = () => {
           </div>
 
           {/* FOOTER */}
-          <div className="siges-modal-footer flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={closeModal}

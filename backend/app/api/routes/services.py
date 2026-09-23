@@ -1,12 +1,10 @@
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 
 from app.models.client import Client
 from app.models.equipment import Equipment
-
 from app.db.session import get_db
 from app.models.service import Service, ServiceStatus
 from app.models.service_item import ServiceItem
@@ -18,98 +16,88 @@ from app.schemas.service import (
     AddProductToService,
     ServiceResponse,
 )
-from app.core.rbac import RoleChecker
 from app.models.user import User
+from app.api.deps import get_current_user, check_permission
 from app.services.audit_service import log_audit
-
 
 router = APIRouter()
 
-
 @router.get("/", response_model=List[ServiceResponse])
 def get_services(
-    cliente_id: int = None,
+    cliente_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "TECNICO", "VENDEDOR"])
-    ),
+    current_user: User = Depends(check_permission("servicios", "ver")),
 ):
-    query = (
-        db.query(Service)
-        .options(
-            joinedload(Service.items)
-        )
-    )
+    query = db.query(Service).options(joinedload(Service.items))
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Service.empresa_id == current_user.empresa_id)
 
     if cliente_id:
         query = query.filter(Service.cliente_id == cliente_id)
 
     return query.order_by(Service.id.desc()).all()
 
-
 @router.get("/{service_id}", response_model=ServiceResponse)
 def get_service(
     service_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "TECNICO"])
-    ),
+    current_user: User = Depends(check_permission("servicios", "ver")),
 ):
-    service = (
-        db.query(Service)
-        .options(
-            joinedload(Service.items)
-        )
-        .filter(Service.id == service_id)
-        .first()
-    )
+    query = db.query(Service).options(joinedload(Service.items)).filter(Service.id == service_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Service.empresa_id == current_user.empresa_id)
+
+    service = query.first()
 
     if not service:
         raise HTTPException(
-            status_code=404,
-            detail="Servicio no encontrado",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Servicio no encontrado o no pertenece a su empresa",
         )
 
     return service
 
-
-@router.post("/", response_model=ServiceResponse)
+@router.post("/", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
 def create_service(
     service_in: ServiceCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "TECNICO"])
-    ),
+    current_user: User = Depends(check_permission("servicios", "crear")),
 ):
-    client = (
-        db.query(Client)
-        .filter(Client.id == service_in.cliente_id)
-        .first()
-    )
+    empresa_id = current_user.empresa_id or 1
+    
+    client_q = db.query(Client).filter(Client.id == service_in.cliente_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        client_q = client_q.filter(Client.empresa_id == empresa_id)
+    
+    client = client_q.first()
 
     if not client:
         raise HTTPException(
-            status_code=404,
-            detail="Cliente no encontrado",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El cliente indicado no pertenece a su empresa o no existe",
         )
 
     if service_in.equipo_id is not None:
-        equipment = (
-            db.query(Equipment)
-            .filter(
-                Equipment.id == service_in.equipo_id,
-                Equipment.cliente_id == service_in.cliente_id,
-            )
-            .first()
+        eq_q = db.query(Equipment).filter(
+            Equipment.id == service_in.equipo_id,
+            Equipment.cliente_id == service_in.cliente_id,
         )
+        if current_user.rol.nombre != "SUPERADMIN":
+            eq_q = eq_q.filter(Equipment.empresa_id == empresa_id)
+            
+        equipment = eq_q.first()
 
         if not equipment:
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El equipo no existe o no pertenece al cliente seleccionado",
             )
 
+        if equipment and service_in.imagen_url:
+            equipment.imagen_url = service_in.imagen_url
+
     service = Service(
+        empresa_id=empresa_id,
         cliente_id=service_in.cliente_id,
         equipo_id=service_in.equipo_id,
         tipo_servicio=service_in.tipo_servicio,
@@ -117,6 +105,7 @@ def create_service(
         fecha_estimada=service_in.fecha_estimada,
         usuario_responsable_id=service_in.usuario_responsable_id,
         monto=service_in.monto or 0.00,
+        imagen_url=service_in.imagen_url,
     )
 
     db.add(service)
@@ -126,13 +115,11 @@ def create_service(
     log_audit(
         db,
         usuario_id=current_user.id,
-        accion="CREAR",
+        empresa_id=empresa_id,
+        accion="CREAR_SERVICIO",
         entidad="Service",
         entidad_id=service.id,
-        descripcion=(
-            f"Orden de servicio creada #{service.id} "
-            f"tipo={service.tipo_servicio}"
-        ),
+        descripcion=f"Orden de servicio creada #{service.id} tipo={service.tipo_servicio}",
     )
 
     return service
@@ -142,19 +129,17 @@ def update_service_status(
     service_id: int,
     status_in: ServiceUpdateStatus,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "TECNICO"])
-    ),
+    current_user: User = Depends(check_permission("servicios", "editar")),
 ):
-    service = (
-        db.query(Service)
-        .filter(Service.id == service_id)
-        .first()
-    )
+    query = db.query(Service).filter(Service.id == service_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Service.empresa_id == current_user.empresa_id)
+
+    service = query.first()
 
     if not service:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Servicio no encontrado",
         )
 
@@ -178,68 +163,59 @@ def update_service_status(
     log_audit(
         db,
         usuario_id=current_user.id,
-        accion="CAMBIO_ESTADO",
+        empresa_id=service.empresa_id,
+        accion="CAMBIO_ESTADO_SERVICIO",
         entidad="Service",
         entidad_id=service.id,
-        descripcion=(
-            f"Servicio #{service.id} cambió a estado "
-            f"{service.estado}"
-        ),
+        descripcion=f"Servicio #{service.id} cambió a estado {service.estado}",
     )
 
     return service
-
 
 @router.post("/{service_id}/products")
 def add_product_to_service(
     service_id: int,
     prod_in: AddProductToService,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        RoleChecker(["ADMIN", "TECNICO"])
-    ),
+    current_user: User = Depends(check_permission("servicios", "editar")),
 ):
     if prod_in.cantidad <= 0:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="La cantidad debe ser mayor que cero",
         )
 
-    service = (
-        db.query(Service)
-        .filter(Service.id == service_id)
-        .first()
-    )
+    query = db.query(Service).filter(Service.id == service_id)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Service.empresa_id == current_user.empresa_id)
+
+    service = query.first()
 
     if not service:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Servicio no encontrado",
         )
 
-    product = (
-        db.query(Product)
-        .filter(
-            Product.id == prod_in.producto_id,
-            Product.activo == True,
-        )
-        .with_for_update()
-        .first()
+    prod_q = db.query(Product).filter(
+        Product.id == prod_in.producto_id,
+        Product.activo == True,
     )
+    if current_user.rol.nombre != "SUPERADMIN":
+        prod_q = prod_q.filter(Product.empresa_id == current_user.empresa_id)
+
+    product = prod_q.with_for_update().first()
 
     if not product:
         raise HTTPException(
-            status_code=404,
-            detail="Producto no encontrado o inactivo",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado en su inventario",
         )
 
     if product.stock < prod_in.cantidad:
         raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Stock insuficiente. Stock actual: "
-                f"{product.stock}"
-            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stock insuficiente. Stock actual: {product.stock}",
         )
 
     precio_unitario = float(product.precio_venta)
@@ -248,14 +224,13 @@ def add_product_to_service(
     product.stock -= prod_in.cantidad
 
     movement = InventoryMovement(
+        empresa_id=service.empresa_id,
         producto_id=product.id,
         tipo=MovementType.SALIDA,
         cantidad=prod_in.cantidad,
         servicio_id=service.id,
         usuario_id=current_user.id,
-        observacion=(
-            f"Producto utilizado en servicio #{service.id}"
-        ),
+        observacion=f"Producto utilizado en servicio #{service.id}",
     )
 
     service_item = ServiceItem(
@@ -272,17 +247,14 @@ def add_product_to_service(
     log_audit(
         db,
         usuario_id=current_user.id,
+        empresa_id=service.empresa_id,
         accion="SALIDA_INVENTARIO",
         entidad="Service",
         entidad_id=service.id,
-        descripcion=(
-            f"Producto #{product.id} agregado al servicio "
-            f"#{service.id}. Cantidad: {prod_in.cantidad}"
-        ),
+        descripcion=f"Producto #{product.id} ({product.nombre}) agregado al servicio #{service.id}. Cantidad: {prod_in.cantidad}",
     )
 
     db.commit()
-
     db.refresh(service_item)
 
     return {
@@ -298,4 +270,3 @@ def add_product_to_service(
         },
         "stock_actual": product.stock,
     }
-

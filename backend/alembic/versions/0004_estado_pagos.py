@@ -11,10 +11,6 @@ depends_on = None
 
 
 def upgrade():
-    # La instalación nueva ya crea esta columna en la migración inicial.
-    if "estado" in {column["name"] for column in sa.inspect(op.get_bind()).get_columns("payments")}:
-        return
-
     payment_status_enum = sa.Enum(
         "PAGADO",
         "ANULADO",

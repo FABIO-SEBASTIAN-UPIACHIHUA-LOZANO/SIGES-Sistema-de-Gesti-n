@@ -152,7 +152,7 @@ export function Audit() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Registro de actividades realizadas dentro de SIGES.
+              Registro de actividades realizadas dentro de SisTec.
             </p>
           </div>
         </div>

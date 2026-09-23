@@ -1493,7 +1493,7 @@ function EmptyState({
       <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
         {search
           ? "Prueba con otro término de búsqueda."
-          : "Los servicios aparecerán aquí cuando existan en SIGES."}
+          : "Los servicios aparecerán aquí cuando existan en SisTec."}
       </p>
 
       {!search && onCreate && (

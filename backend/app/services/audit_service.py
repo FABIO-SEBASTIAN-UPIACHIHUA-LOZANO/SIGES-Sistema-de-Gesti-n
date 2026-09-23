@@ -8,9 +8,11 @@ def log_audit(
     accion: str,
     entidad: str,
     entidad_id: Optional[int],
-    descripcion: str
+    descripcion: str,
+    empresa_id: Optional[int] = None
 ):
     audit_entry = Audit(
+        empresa_id=empresa_id,
         usuario_id=usuario_id,
         accion=accion,
         entidad=entidad,

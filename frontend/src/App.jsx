@@ -1,12 +1,11 @@
 
-import React, { useContext, useLayoutEffect } from "react";
+import React, { useContext } from "react";
 
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
-  useLocation,
 } from "react-router-dom";
 
 import {
@@ -27,28 +26,10 @@ import { Audit } from "./pages/Audit";
 import { ServiceDetail } from "./pages/ServiceDetail";
 
 import { Payments } from "./pages/Payments";
-
 import { Invoices } from "./pages/Invoices";
-import { Account } from "./pages/Account";
-import { Settings } from "./pages/Settings";
-import { HelpCenter } from "./pages/HelpCenter";
-import { applyTheme, readPreferences } from "./utils/preferences";
-
-function ThemeRouteController() {
-  const { pathname } = useLocation();
-  const { user } = useContext(AuthContext);
-
-  useLayoutEffect(() => {
-    // IMPLEMENTACIÓN: el tema elegido pertenece al sistema autenticado.
-    // Login y recuperación de contraseña conservan siempre el diseño claro.
-    const theme = pathname === "/login" || !user
-      ? "light"
-      : readPreferences(user).theme;
-    applyTheme(theme);
-  }, [pathname, user]);
-
-  return null;
-}
+import { Superadmin } from "./pages/Superadmin";
+import { Licenses } from "./pages/Licenses";
+import { MobileCameraUpload } from "./pages/MobileCameraUpload";
 
 function getRole(user) {
   return (
@@ -73,7 +54,7 @@ function ProtectedRoute({ children, roles }) {
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
 
           <p className="mt-4 text-sm text-slate-500">
-            Cargando SIGES...
+            Cargando SisTec...
           </p>
         </div>
       </div>
@@ -100,15 +81,18 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <ThemeRouteController />
         <Routes>
 
           {/* =========================
-              LOGIN
+              LOGIN & CAPTURA MÓVIL
           ========================== */}
           <Route
             path="/login"
             element={<Login />}
+          />
+          <Route
+            path="/captura-movil/:sessionId"
+            element={<MobileCameraUpload />}
           />
 
 
@@ -120,6 +104,7 @@ export default function App() {
             element={
               <ProtectedRoute
                 roles={[
+                  "SUPERADMIN",
                   "ADMIN",
                   "TECNICO",
                   "VENDEDOR",
@@ -211,6 +196,24 @@ export default function App() {
               }
             />
 
+            {/* =========================
+                LICENCIAS DE SOFTWARE
+            ========================== */}
+            <Route
+              path="licencias"
+              element={
+                <ProtectedRoute
+                  roles={[
+                    "ADMIN",
+                    "TECNICO",
+                    "VENDEDOR",
+                  ]}
+                >
+                  <Licenses />
+                </ProtectedRoute>
+              }
+            />
+
 
             {/* =========================
                 PRODUCTOS / INVENTARIO
@@ -285,20 +288,29 @@ export default function App() {
 
             {/* =========================
                 AUDITORÍA
-                SOLO ADMIN
+                ADMIN + SUPERADMIN
             ========================== */}
             <Route
               path="auditoria"
               element={
-                <ProtectedRoute roles={["ADMIN"]}>
+                <ProtectedRoute roles={["ADMIN", "SUPERADMIN"]}>
                   <Audit />
                 </ProtectedRoute>
               }
             />
 
-            <Route path="cuenta" element={<Account />} />
-            <Route path="configuracion" element={<Settings />} />
-            <Route path="ayuda" element={<HelpCenter />} />
+            {/* =========================
+                SUPERADMIN PLATFORM
+                SOLO SUPERADMIN
+            ========================== */}
+            <Route
+              path="superadmin"
+              element={
+                <ProtectedRoute roles={["SUPERADMIN"]}>
+                  <Superadmin />
+                </ProtectedRoute>
+              }
+            />
 
           </Route>
 
@@ -321,3 +333,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

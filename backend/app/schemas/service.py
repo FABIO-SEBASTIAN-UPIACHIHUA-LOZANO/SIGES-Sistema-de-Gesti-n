@@ -13,6 +13,7 @@ class ServiceBase(BaseModel):
     tipo_servicio: str
     descripcion: str
     fecha_estimada: Optional[datetime] = None
+    imagen_url: Optional[str] = None
 
 
 class ServiceCreate(ServiceBase):
@@ -24,6 +25,7 @@ class ServiceUpdateStatus(BaseModel):
     estado: ServiceStatus
     diagnostico: Optional[str] = None
     monto: Optional[float] = None
+    imagen_url: Optional[str] = None
 
 
 class AddProductToService(BaseModel):
@@ -40,6 +42,7 @@ class ServiceResponse(ServiceBase):
     fecha_ingreso: datetime
     fecha_estimada: Optional[datetime] = None
     fecha_finalizacion: Optional[datetime] = None
+    imagen_url: Optional[str] = None
     created_at: datetime
     items: List[ServiceItemResponse] = []
 

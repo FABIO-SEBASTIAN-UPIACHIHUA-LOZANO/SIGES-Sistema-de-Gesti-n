@@ -2,19 +2,19 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: siges_postgres
+    container_name: sistec_postgres
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-siges_db}
-      POSTGRES_USER: ${POSTGRES_USER:-siges_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siges_password}
+      POSTGRES_DB: ${POSTGRES_DB:-sistec_db}
+      POSTGRES_USER: ${POSTGRES_USER:-sistec_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sistec_password}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siges_user} -d ${POSTGRES_DB:-siges_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sistec_user} -d ${POSTGRES_DB:-sistec_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,36 +23,30 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: siges_backend
+    container_name: sistec_backend
     restart: always
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-siges_user}:${POSTGRES_PASSWORD:-siges_password}@postgres:5432/${POSTGRES_DB:-siges_db}
-      SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_siges_2026}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sistec_user}:${POSTGRES_PASSWORD:-sistec_password}@postgres:5432/${POSTGRES_DB:-sistec_db}
+      SECRET_KEY: ${SECRET_KEY:-super_secret_jwt_key_sistec_2026}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 480
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-SIGES}
-      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
-      PASSWORD_RESET_CODE_MINUTES: ${PASSWORD_RESET_CODE_MINUTES:-10}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:5175,http://127.0.0.1:5175}
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/static:/app/static
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: siges_frontend
+    container_name: sistec_frontend
     restart: always
     environment:
-      API_PROXY_TARGET: http://backend:8000
+      VITE_API_URL: http://localhost:8000/api
     ports:
       - "5173:5173"
     depends_on:

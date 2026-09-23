@@ -11,12 +11,9 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Pencil,
-  Trash2,
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
 
 const EMPTY_FORM = {
   nombre: "",
@@ -94,10 +91,6 @@ export function Inventory() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -165,25 +158,8 @@ export function Inventory() {
   }, [products]);
 
   const openModal = () => {
-    setEditingProduct(null);
     setForm(EMPTY_FORM);
     setFormError("");
-    setModalOpen(true);
-  };
-
-  const openEditModal = (product) => {
-    setEditingProduct(product);
-    setMenuOpen(null);
-    setFormError("");
-    setForm({
-      nombre: product.nombre || "",
-      categoria: product.categoria || "",
-      codigo: product.codigo || "",
-      stock: String(product.stock ?? ""),
-      stock_minimo: String(product.stock_minimo ?? "2"),
-      precio_compra: String(product.precio_compra ?? ""),
-      precio_venta: String(product.precio_venta ?? ""),
-    });
     setModalOpen(true);
   };
 
@@ -191,7 +167,6 @@ export function Inventory() {
     if (saving) return;
 
     setModalOpen(false);
-    setEditingProduct(null);
     setFormError("");
     setForm(EMPTY_FORM);
   };
@@ -277,14 +252,9 @@ export function Inventory() {
         precio_venta: precioVenta,
       };
 
-      if (editingProduct) {
-        await api.put(`/products/${editingProduct.id}`, payload);
-      } else {
-        await api.post("/products/", payload);
-      }
+      await api.post("/products/", payload);
 
       setModalOpen(false);
-      setEditingProduct(null);
       setForm(EMPTY_FORM);
 
       await loadProducts();
@@ -293,28 +263,6 @@ export function Inventory() {
       setFormError(getErrorMessage(err));
     } finally {
       setSaving(false);
-    }
-  };
-
-  // IMPLEMENTACIÓN: edición y eliminación conectadas al menú de tres puntos.
-  const requestDelete = (product) => {
-    setMenuOpen(null);
-    setDeleteError("");
-    setDeleteTarget(product);
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      setDeleting(true);
-      setDeleteError("");
-      await api.delete(`/products/${deleteTarget.id}`);
-      setDeleteTarget(null);
-      await loadProducts();
-    } catch (err) {
-      setDeleteError(getErrorMessage(err));
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -599,18 +547,30 @@ export function Inventory() {
                     </td>
 
                     <td className="relative px-6 py-4 text-right">
-                      {isAdmin && <>
-                        <button type="button" onClick={() => setMenuOpen(menuOpen === product.id ? null : product.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label={`Acciones de ${product.nombre}`}>
-                          <MoreHorizontal size={18} />
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMenuOpen(
+                            menuOpen === product.id ? null : product.id
+                          )
+                        }
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
 
-                        {menuOpen === product.id && (
-                          <div className="absolute bottom-12 right-6 z-20 w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
-                            <button type="button" onClick={() => openEditModal(product)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"><Pencil size={15} /> Editar producto</button>
-                            <button type="button" onClick={() => requestDelete(product)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={15} /> Eliminar producto</button>
-                          </div>
-                        )}
-                      </>}
+                      {menuOpen === product.id && (
+                        <div className="absolute right-6 top-12 z-20 w-48 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Producto #{product.id}
+                          </p>
+
+                          <p className="mt-2 text-sm text-slate-600">
+                            Actualmente no hay operaciones de edición o
+                            eliminación disponibles en el backend.
+                          </p>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -676,10 +636,6 @@ export function Inventory() {
                     </p>
                   </div>
                 </div>
-                {isAdmin && <div className="mt-4 flex gap-2">
-                  <button type="button" onClick={() => openEditModal(product)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"><Pencil size={15} /> Editar</button>
-                  <button type="button" onClick={() => requestDelete(product)} className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"><Trash2 size={15} /> Eliminar</button>
-                </div>}
               </div>
             ))}
           </div>
@@ -719,23 +675,23 @@ export function Inventory() {
       {/* MODAL */}
       {modalOpen && (
         <div
-          className="siges-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !saving) {
               closeModal();
             }
           }}
         >
-          <div className="siges-modal-panel w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             {/* MODAL HEADER */}
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  {editingProduct ? "Editar producto" : "Registrar producto"}
+                  Registrar producto
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  {editingProduct ? "Actualiza la información del producto." : "Ingresa la información del nuevo producto."}
+                  Ingresa la información del nuevo producto.
                 </p>
               </div>
 
@@ -750,8 +706,8 @@ export function Inventory() {
             </div>
 
             {/* FORM */}
-            <form onSubmit={handleSubmit} className="siges-modal-form">
-              <div className="siges-modal-body px-6 py-6">
+            <form onSubmit={handleSubmit}>
+              <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
                 {formError && (
                   <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
                     <AlertCircle size={19} className="mt-0.5 shrink-0" />
@@ -903,7 +859,7 @@ export function Inventory() {
               </div>
 
               {/* FOOTER */}
-              <div className="siges-modal-footer flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -921,12 +877,12 @@ export function Inventory() {
                   {saving ? (
                     <>
                       <Loader2 size={17} className="animate-spin" />
-                      Guardando...
+                      Registrando...
                     </>
                   ) : (
                     <>
                       <Plus size={17} />
-                      {editingProduct ? "Guardar cambios" : "Registrar producto"}
+                      Registrar producto
                     </>
                   )}
                 </button>
@@ -935,16 +891,7 @@ export function Inventory() {
           </div>
         </div>
       )}
-
-      <ConfirmDeleteDialog
-        open={Boolean(deleteTarget)}
-        title="Eliminar producto"
-        description={`¿Deseas eliminar ${deleteTarget?.nombre || "este producto"}? Se ocultará del inventario, pero sus movimientos se conservarán.`}
-        error={deleteError}
-        deleting={deleting}
-        onCancel={() => !deleting && setDeleteTarget(null)}
-        onConfirm={handleDelete}
-      />
     </div>
   );
 }
+

@@ -23,7 +23,6 @@ if str(BASE_DIR) not in sys.path:
 # ============================================================
 
 from app.db.session import Base
-from app.core.config import settings
 
 from app.models import (
     role,
@@ -37,7 +36,6 @@ from app.models import (
     notification,
     audit,
     service_item,
-    password_reset,
 )
 
 
@@ -46,7 +44,6 @@ from app.models import (
 # ============================================================
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 
 if config.config_file_name is not None:

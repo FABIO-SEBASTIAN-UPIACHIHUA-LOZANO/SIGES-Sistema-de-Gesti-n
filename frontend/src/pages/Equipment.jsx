@@ -14,11 +14,11 @@ import {
   PackageOpen,
   Cpu,
   Tablet,
-  Pencil,
-  Trash2,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
 import api from "../services/api";
-import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
+import { ImageUploadControl } from "../components/ImageUploadControl";
 
 const emptyForm = {
   cliente_id: "",
@@ -27,6 +27,7 @@ const emptyForm = {
   modelo: "",
   numero_serie: "",
   descripcion: "",
+  imagen_url: "",
 };
 
 function EquipmentIcon({ type }) {
@@ -133,10 +134,6 @@ export function Equipment() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingEquipment, setEditingEquipment] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
@@ -233,24 +230,8 @@ export function Equipment() {
   }, [equipment]);
 
   const openModal = () => {
-    setEditingEquipment(null);
     setForm(emptyForm);
     setFormError("");
-    setModalOpen(true);
-  };
-
-  const openEditModal = (item) => {
-    setEditingEquipment(item);
-    setMenuOpen(null);
-    setFormError("");
-    setForm({
-      cliente_id: String(item.cliente_id || ""),
-      tipo: item.tipo || "",
-      marca: item.marca || "",
-      modelo: item.modelo || "",
-      numero_serie: item.numero_serie || "",
-      descripcion: item.descripcion || "",
-    });
     setModalOpen(true);
   };
 
@@ -258,7 +239,6 @@ export function Equipment() {
     if (saving) return;
 
     setModalOpen(false);
-    setEditingEquipment(null);
     setForm(emptyForm);
     setFormError("");
   };
@@ -317,16 +297,12 @@ export function Equipment() {
         modelo: form.modelo.trim(),
         numero_serie: form.numero_serie.trim() || null,
         descripcion: form.descripcion.trim() || null,
+        imagen_url: form.imagen_url.trim() || null,
       };
 
-      if (editingEquipment) {
-        await api.put(`/equipment/${editingEquipment.id}`, payload);
-      } else {
-        await api.post("/equipment/", payload);
-      }
+      await api.post("/equipment/", payload);
 
       setModalOpen(false);
-      setEditingEquipment(null);
       setForm(emptyForm);
       setFormError("");
 
@@ -336,28 +312,6 @@ export function Equipment() {
       setFormError(getErrorMessage(err));
     } finally {
       setSaving(false);
-    }
-  };
-
-  // IMPLEMENTACIÓN: acciones reales para el menú contextual de cada equipo.
-  const requestDelete = (item) => {
-    setMenuOpen(null);
-    setDeleteError("");
-    setDeleteTarget(item);
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      setDeleting(true);
-      setDeleteError("");
-      await api.delete(`/equipment/${deleteTarget.id}`);
-      setDeleteTarget(null);
-      await loadEquipment();
-    } catch (err) {
-      setDeleteError(getErrorMessage(err));
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -637,14 +591,21 @@ export function Equipment() {
                         {menuOpen === item.id && (
                           <div
                             onClick={(event) => event.stopPropagation()}
-                            className="absolute bottom-12 right-6 z-20 w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
+                            className="absolute right-6 top-12 z-20 w-48 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl"
                           >
-                            <button type="button" onClick={() => openEditModal(item)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
-                              <Pencil size={15} /> Editar equipo
-                            </button>
-                            <button type="button" onClick={() => requestDelete(item)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50">
-                              <Trash2 size={15} /> Eliminar equipo
-                            </button>
+                            <div className="px-2 py-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                Información
+                              </p>
+
+                              <p className="mt-1 text-sm font-medium text-slate-700">
+                                Equipo #{item.id}
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                {item.tipo} · {item.marca}
+                              </p>
+                            </div>
                           </div>
                         )}
                       </td>
@@ -717,10 +678,6 @@ export function Equipment() {
                       </p>
                     )}
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={() => openEditModal(item)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"><Pencil size={15} /> Editar</button>
-                    <button type="button" onClick={() => requestDelete(item)} className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"><Trash2 size={15} /> Eliminar</button>
-                  </div>
                 </div>
               );
             })}
@@ -764,23 +721,23 @@ export function Equipment() {
       {/* MODAL */}
       {modalOpen && (
         <div
-          className="siges-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !saving) {
               closeModal();
             }
           }}
         >
-          <div className="siges-modal-panel w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             {/* Modal header */}
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  {editingEquipment ? "Editar equipo" : "Registrar equipo"}
+                  Registrar equipo
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  {editingEquipment ? "Actualiza la información del equipo." : "Asocia un equipo a un cliente existente."}
+                  Asocia un equipo a un cliente existente.
                 </p>
               </div>
 
@@ -795,8 +752,8 @@ export function Equipment() {
             </div>
 
             {/* Modal body */}
-            <form onSubmit={handleSubmit} className="siges-modal-form">
-              <div className="siges-modal-body px-6 py-6">
+            <form onSubmit={handleSubmit}>
+              <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
                 {formError && (
                   <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {formError}
@@ -974,11 +931,20 @@ export function Equipment() {
                       className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                     />
                   </div>
+
+                  {/* Imagen del Equipo */}
+                  <div className="sm:col-span-2">
+                    <ImageUploadControl
+                      value={form.imagen_url}
+                      onChange={(url) => setForm((prev) => ({ ...prev, imagen_url: url }))}
+                      label="Foto / Imagen del Equipo"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Modal footer */}
-              <div className="siges-modal-footer flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -994,23 +960,13 @@ export function Equipment() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && <Loader2 size={17} className="animate-spin" />}
-                  {saving ? "Guardando..." : editingEquipment ? "Guardar cambios" : "Registrar equipo"}
+                  {saving ? "Registrando..." : "Registrar equipo"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      <ConfirmDeleteDialog
-        open={Boolean(deleteTarget)}
-        title="Eliminar equipo"
-        description={`¿Deseas eliminar ${deleteTarget?.marca || "este equipo"} ${deleteTarget?.modelo || ""}? Esta acción no se puede deshacer.`}
-        error={deleteError}
-        deleting={deleting}
-        onCancel={() => !deleting && setDeleteTarget(null)}
-        onConfirm={handleDelete}
-      />
     </div>
   );
 }

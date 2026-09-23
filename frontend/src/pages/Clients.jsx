@@ -14,12 +14,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Trash2,
 } from "lucide-react";
 import api from "../services/api";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
 
 const emptyForm = {
   nombres: "",
@@ -75,9 +73,6 @@ export function Clients() {
   const [editingClient, setEditingClient] = useState(null);
 
   const [menuOpen, setMenuOpen] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
   const [form, setForm] = useState(emptyForm);
 
@@ -269,29 +264,6 @@ const handleSubmit = async (event) => {
     setSaving(false);
   }
 };
-
-  // IMPLEMENTACIÓN: baja segura activada desde el menú de tres puntos.
-  const requestDelete = (client) => {
-    setMenuOpen(null);
-    setDeleteError("");
-    setDeleteTarget(client);
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      setDeleting(true);
-      setDeleteError("");
-      await api.delete(`/clients/${deleteTarget.id}`);
-      setDeleteTarget(null);
-      await loadClients();
-    } catch (err) {
-      setDeleteError(getErrorMessage(err));
-    } finally {
-      setDeleting(false);
-    }
-  };
   // ============================================================
   // RENDER
   // ============================================================
@@ -314,7 +286,7 @@ const handleSubmit = async (event) => {
               </h1>
 
               <p className="mt-0.5 text-sm text-slate-500">
-                Gestiona los clientes registrados en SIGES.
+                Gestiona los clientes registrados en SisTec.
               </p>
             </div>
           </div>
@@ -618,7 +590,7 @@ const handleSubmit = async (event) => {
                           </button>
 
                           {menuOpen === client.id && (
-                            <div className="absolute bottom-12 right-6 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
+                            <div className="absolute right-6 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -628,14 +600,6 @@ const handleSubmit = async (event) => {
                               >
                                 <Pencil size={15} />
                                 Editar cliente
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => requestDelete(client)}
-                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition hover:bg-red-50"
-                              >
-                                <Trash2 size={15} />
-                                Eliminar cliente
                               </button>
                             </div>
                           )}
@@ -713,14 +677,14 @@ const handleSubmit = async (event) => {
                 </div>
 
                 {canEdit && (
-                  <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={() => openEditModal(client)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-                      <Pencil size={15} /> Editar
-                    </button>
-                    <button type="button" onClick={() => requestDelete(client)} className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50">
-                      <Trash2 size={15} /> Eliminar
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(client)}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                  >
+                    <Pencil size={15} />
+                    Editar
+                  </button>
                 )}
               </div>
             ))}
@@ -767,14 +731,14 @@ const handleSubmit = async (event) => {
       ======================================================= */}
       {modalOpen && (
         <div
-          className="siges-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               closeModal();
             }
           }}
         >
-          <div className="siges-modal-panel w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
             {/* Modal header */}
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
               <div>
@@ -787,7 +751,7 @@ const handleSubmit = async (event) => {
                 <p className="mt-1 text-sm text-slate-500">
                   {editingClient
                     ? "Actualiza la información del cliente."
-                    : "Registra un nuevo cliente en SIGES."}
+                    : "Registra un nuevo cliente en SisTec."}
                 </p>
               </div>
 
@@ -802,8 +766,8 @@ const handleSubmit = async (event) => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="siges-modal-form">
-              <div className="siges-modal-body space-y-5 p-6">
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-5 p-6">
                 {formError && (
                   <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
                     <AlertCircle
@@ -992,7 +956,7 @@ const handleSubmit = async (event) => {
               </div>
 
               {/* Footer */}
-              <div className="siges-modal-footer flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -1022,16 +986,6 @@ const handleSubmit = async (event) => {
           </div>
         </div>
       )}
-
-      <ConfirmDeleteDialog
-        open={Boolean(deleteTarget)}
-        title="Eliminar cliente"
-        description={`¿Deseas eliminar a ${deleteTarget?.nombres || "este cliente"} ${deleteTarget?.apellidos || ""}? Se ocultará del directorio, pero su historial se conservará.`}
-        error={deleteError}
-        deleting={deleting}
-        onCancel={() => !deleting && setDeleteTarget(null)}
-        onConfirm={handleDelete}
-      />
     </div>
   );
 }

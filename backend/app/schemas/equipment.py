@@ -9,19 +9,10 @@ class EquipmentBase(BaseModel):
     modelo: str
     numero_serie: Optional[str] = None
     descripcion: Optional[str] = None
+    imagen_url: Optional[str] = None
 
 class EquipmentCreate(EquipmentBase):
     pass
-
-# IMPLEMENTACIÓN: esquema parcial para permitir editar un equipo sin
-# duplicar las reglas del formulario de creación.
-class EquipmentUpdate(BaseModel):
-    cliente_id: Optional[int] = None
-    tipo: Optional[str] = None
-    marca: Optional[str] = None
-    modelo: Optional[str] = None
-    numero_serie: Optional[str] = None
-    descripcion: Optional[str] = None
 
 class EquipmentResponse(EquipmentBase):
     id: int

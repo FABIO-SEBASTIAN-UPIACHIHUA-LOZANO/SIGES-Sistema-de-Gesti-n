@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -6,47 +6,67 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
-  KeyRound,
-  X,
-  CheckCircle2,
   ShieldCheck,
   Wrench,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  QrCode,
+  CheckCircle2,
+  Building2,
+  Cpu
 } from "lucide-react";
 
 import { AuthContext } from "../context/AuthContext";
-import api from "../services/api";
 
 /**
- * Convierte los diferentes formatos de error
- * que puede devolver el backend en un mensaje de texto.
+ * Diapositivas para el carrusel interactivo del panel izquierdo
  */
-function getErrorMessage(error, fallback = "No fue posible iniciar sesión. Inténtalo nuevamente.") {
+const CAROUSEL_SLIDES = [
+  {
+    id: 1,
+    tag: "Mantenimiento & Equipos",
+    title: "Gestión técnica de alta precisión para tu empresa.",
+    description:
+      "Supervisa el ciclo de vida de cada equipo, historial de mantenimientos y órdenes de servicio con trazabilidad en tiempo real.",
+    image:
+      "https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=1200&auto=format&fit=crop",
+    features: ["Historial de Equipos", "Órdenes de Trabajo", "Alertas Preventivas"],
+  },
+  {
+    id: 2,
+    tag: "Innovación Móvil QR",
+    title: "Captura fotos con tu celular sin instalar apps.",
+    description:
+      "Vincula la cámara de tu smartphone al instante escaneando un código QR dinámico y sube imágenes de equipos directo a la plataforma.",
+    image:
+      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=1200&auto=format&fit=crop",
+    features: ["Conexión QR Dinámica", "Subida en Tiempo Real", "0 Instalaciones"],
+  },
+  {
+    id: 3,
+    tag: "Control Multi-Empresa",
+    title: "Auditoría, inventario y gestión centralizada.",
+    description:
+      "Administra múltiples sucursales, clientes, repuestos y perfiles de acceso garantizando máxima seguridad en tu operación.",
+    image:
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1200&auto=format&fit=crop",
+    features: ["Seguridad RBAC", "Registro de Auditoría", "Reportes Ejecutivos"],
+  },
+];
+
+function getErrorMessage(error) {
   const detail = error?.response?.data?.detail;
 
-  // Errores de validación de FastAPI / Pydantic
   if (Array.isArray(detail)) {
-    const messages = detail
-      .map((item) => item?.msg)
-      .filter(Boolean);
-
-    if (messages.length > 0) {
-      return messages.join(". ");
-    }
-
-    return "Los datos ingresados no son válidos.";
+    const messages = detail.map((item) => item?.msg).filter(Boolean);
+    return messages.length > 0 ? messages.join(". ") : "Los datos ingresados no son válidos.";
   }
 
-  // Error normal enviado como string
-  if (typeof detail === "string") {
-    return detail;
-  }
+  if (typeof detail === "string") return detail;
+  if (typeof error?.message === "string" && error.message) return error.message;
 
-  // Otros errores
-  if (typeof error?.message === "string" && error.message) {
-    return error.message;
-  }
-
-  return fallback;
+  return "No fue posible iniciar sesión. Inténtalo nuevamente.";
 }
 
 export function Login() {
@@ -55,475 +75,360 @@ export function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
-  /**
-   * Si ya existe una sesión activa,
-   * enviamos al usuario directamente al inicio.
-   */
+  // Estado del carrusel
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auto-play del carrusel cada 5.5 segundos
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, []);
+
   if (user) {
+    if (String(user.rol).toUpperCase() === "SUPERADMIN") {
+      return <Navigate to="/superadmin" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-
-    // Evita múltiples envíos mientras se procesa el login
-    if (loading) {
-      return;
-    }
+    if (loading) return;
 
     setError("");
-    setNotice("");
     setLoading(true);
 
     try {
-      await login(email.trim(), password);
-
-      // Login exitoso
-      navigate("/", { replace: true });
-    } catch (error) {
-      setError(getErrorMessage(error));
+      const userData = await login(email.trim(), password);
+      if (String(userData?.rol).toUpperCase() === "SUPERADMIN") {
+        navigate("/superadmin", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="min-h-screen w-full bg-slate-950 font-sans selection:bg-indigo-500 selection:text-white">
+      <div className="grid min-h-screen lg:grid-cols-12">
 
         {/* =====================================================
-            PANEL DE BRANDING
+            PANEL IZQUIERDO: CARRUSEL VISUAL ELEGANTE (7 cols)
         ====================================================== */}
-
-        <div className="relative hidden overflow-hidden lg:flex">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-indigo-900 to-slate-950" />
-
-          <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
-
-          <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-purple-500/20 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16">
-
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-                <Wrench className="h-5 w-5 text-white" />
-              </div>
-
-              <span className="text-xl font-bold text-white">
-                SIGES
-              </span>
+        <div className="relative hidden overflow-hidden lg:col-span-7 lg:flex flex-col justify-between p-12 xl:p-16 bg-slate-900">
+          
+          {/* Imágenes de fondo con transición de opacidad */}
+          {CAROUSEL_SLIDES.map((slide, idx) => (
+            <div
+              key={slide.id}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                idx === currentSlide ? "opacity-100 z-0" : "opacity-0 -z-10"
+              }`}
+            >
+              <img
+                src={slide.image}
+                alt={slide.title}
+                className="h-full w-full object-cover object-center transform scale-105 transition-transform duration-10000"
+              />
+              {/* Overlays de gradiente para contraste y estilo */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent" />
             </div>
+          ))}
 
-            {/* Presentación */}
-            <div className="max-w-xl">
-              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.25em] text-indigo-300">
-                Business Management Platform
-              </p>
+          {/* Luces ambientales Neón */}
+          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-indigo-600/30 blur-3xl pointer-events-none z-10" />
+          <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none z-10" />
 
-              <h1 className="text-5xl font-bold leading-tight tracking-tight text-white xl:text-6xl">
-                Gestiona tu negocio desde un solo lugar.
-              </h1>
-
-              <p className="mt-6 max-w-lg text-lg leading-8 text-indigo-100/70">
-                Administra clientes, servicios, equipos, inventario,
-                usuarios y operaciones de tu empresa con una plataforma
-                centralizada.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Feature text="Gestión de servicios" />
-                <Feature text="Control de inventario" />
-                <Feature text="Auditoría" />
+          {/* Superior: Logo y Tagline de marca */}
+          <div className="relative z-20 flex items-center justify-between">
+            <div className="flex items-center gap-3.5 rounded-2xl bg-white/10 px-4 py-2.5 backdrop-blur-xl border border-white/15 shadow-2xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-lg shadow-indigo-500/30">
+                <Wrench className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-xl font-bold tracking-tight text-white block leading-none">
+                  SisTec
+                </span>
+                <span className="text-[10px] uppercase font-semibold text-indigo-200 tracking-wider">
+                  Enterprise System
+                </span>
               </div>
             </div>
 
-            {/* Copyright */}
-            <p className="text-sm text-white/40">
-              © 2026 SIGES Business Suite
+            <div className="flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 backdrop-blur-md border border-white/10 text-xs text-indigo-100">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
+              <span>v2.4 Pro Edition</span>
+            </div>
+          </div>
+
+          {/* Inferior: Información del Carrusel & Controles */}
+          <div className="relative z-20 mt-auto pt-16">
+            <div className="max-w-2xl backdrop-blur-md bg-slate-950/25 p-8 rounded-3xl border border-white/15 shadow-2xl">
+              
+              {/* Badge del slide */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-3.5 py-1 text-xs font-semibold text-indigo-300 border border-indigo-500/30 mb-4">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                {CAROUSEL_SLIDES[currentSlide].tag}
+              </div>
+
+              {/* Título animado */}
+              <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-snug tracking-tight">
+                {CAROUSEL_SLIDES[currentSlide].title}
+              </h2>
+
+              {/* Descripción */}
+              <p className="mt-3 text-base text-slate-300 leading-relaxed">
+                {CAROUSEL_SLIDES[currentSlide].description}
+              </p>
+
+              {/* Features Chips */}
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                {CAROUSEL_SLIDES[currentSlide].features.map((feat, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 border border-white/10 backdrop-blur-sm"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-indigo-400" />
+                    {feat}
+                  </span>
+                ))}
+              </div>
+
+              {/* Barra de Controles y Navegación del Carrusel */}
+              <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-5">
+                
+                {/* Indicadores / Dots */}
+                <div className="flex items-center gap-2">
+                  {CAROUSEL_SLIDES.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentSlide(i)}
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        i === currentSlide
+                          ? "w-8 bg-indigo-500"
+                          : "w-2 bg-white/20 hover:bg-white/40"
+                      }`}
+                      aria-label={`Ir a diapositiva ${i + 1}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Flechas prev / next */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setCurrentSlide(
+                        (prev) => (prev - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length
+                      )
+                    }
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition border border-white/10"
+                    aria-label="Anterior"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length)
+                    }
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition border border-white/10"
+                    aria-label="Siguiente"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+
+            <p className="mt-6 text-xs text-slate-400 text-center lg:text-left">
+              © 2026 SisTec Business Suite • Plataforma Centralizada de Servicios
             </p>
           </div>
+
         </div>
 
         {/* =====================================================
-            PANEL DE LOGIN
+            PANEL DERECHO: FORMULARIO DE LOGIN ELEGANTE (5 cols)
         ====================================================== */}
+        <div className="lg:col-span-5 flex items-center justify-center bg-slate-100/80 p-6 sm:p-10 lg:p-12 relative overflow-hidden">
+          
+          {/* Luces decorativas de fondo sutiles */}
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
 
-        <div className="flex items-center justify-center bg-white px-6 py-12">
-          <div className="w-full max-w-md">
+          {/* Tarjeta / Cajita del Formulario */}
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-10 shadow-2xl shadow-slate-300/40 space-y-8">
 
-            {/* Logo móvil */}
-            <div className="mb-10 lg:hidden">
-              <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600">
-                <Wrench className="h-5 w-5 text-white" />
+            {/* Header móvil */}
+            <div className="flex items-center justify-between lg:hidden mb-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <span className="text-xl font-bold text-slate-900">SisTec</span>
               </div>
-
-              <h1 className="text-2xl font-bold text-slate-900">
-                SIGES
-              </h1>
+              <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                v2.4
+              </span>
             </div>
 
-            {/* Encabezado */}
+            {/* Encabezado Principal */}
             <div>
-              <p className="text-sm font-semibold text-indigo-600">
-                Bienvenido de nuevo
-              </p>
-
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 border border-indigo-100">
+                <Building2 className="h-3.5 w-3.5" />
+                Portal de Acceso Corporativo
+              </div>
+              <h1 className="mt-3 text-3xl font-extrabold text-slate-900 tracking-tight">
                 Iniciar sesión
-              </h2>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Ingresa tus credenciales para acceder al sistema.
+              </h1>
+              <p className="mt-1.5 text-sm text-slate-500">
+                Ingresa tus credenciales para administrar tus servicios y equipos.
               </p>
             </div>
 
             {/* Formulario */}
-            <form
-              onSubmit={handleSubmit}
-              className="mt-8 space-y-5"
-              noValidate={false}
-            >
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
-              {/* Error */}
+              {/* Mensaje de Error */}
               {error && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  className="animate-fade-in flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-sm text-red-800 shadow-sm"
                 >
-                  {error}
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-200 text-red-700 font-bold text-xs">
+                    !
+                  </span>
+                  <div>
+                    <p className="font-semibold">Error de autenticación</p>
+                    <p className="text-xs text-red-600 mt-0.5">{error}</p>
+                  </div>
                 </div>
               )}
 
-              {notice && (
-                <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  {notice}
-                </div>
-              )}
-
-              {/* =================================================
-                  EMAIL
-              ================================================== */}
-
+              {/* Campo Email */}
               <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
                   Correo electrónico
                 </label>
-
                 <div className="relative">
-                  <Mail
-                    aria-hidden="true"
-                    className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  />
-
+                  <Mail className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 transition" />
                   <input
                     id="email"
-                    name="email"
                     type="email"
                     value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
+                    onChange={(e) => {
+                      setEmail(e.target.value);
                       setError("");
                     }}
-                    placeholder="admin@empresa.com"
-                    autoComplete="email"
+                    placeholder="ejemplo@sistec.com"
                     required
                     disabled={loading}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-11 pr-4 text-sm text-slate-900 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
 
-              {/* =================================================
-                  PASSWORD
-              ================================================== */}
-
+              {/* Campo Password */}
               <div>
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Contraseña
-                </label>
-
-                <div className="relative">
-                  <LockKeyhole
-                    aria-hidden="true"
-                    className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                      setError("");
-                    }}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    required
-                    disabled={loading}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Contraseña
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    disabled={loading}
-                    aria-label={
-                      showPassword
-                        ? "Ocultar contraseña"
-                        : "Mostrar contraseña"
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    ¿Olvidaste tu clave?
+                  </button>
+                </div>
+                <div className="relative">
+                  <LockKeyhole className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 transition" />
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                    }}
+                    placeholder="••••••••••••"
+                    required
+                    disabled={loading}
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-11 pr-12 text-sm text-slate-900 outline-none shadow-sm transition placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
 
-              {/* =================================================
-                  OPCIONES
-              ================================================== */}
-
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-slate-500">
+              {/* Checkbox Recordarme */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     disabled={loading}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
-
-                  Recordarme
+                  <span>Recordar esta sesión</span>
                 </label>
-
-                <button
-                  type="button"
-                  onClick={() => setForgotPasswordOpen(true)}
-                  disabled={loading}
-                  className="text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
               </div>
 
-              {/* =================================================
-                  BOTÓN LOGIN
-              ================================================== */}
-
+              {/* Botón Iniciar Sesión */}
               <button
                 type="submit"
                 disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group relative flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-600/25 transition-all duration-200 hover:bg-indigo-700 hover:shadow-indigo-600/35 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <>
-                    <span
-                      aria-hidden="true"
-                      className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                    />
-
-                    Iniciando sesión...
-                  </>
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Autenticando...
+                  </span>
                 ) : (
-                  <>
+                  <span className="flex items-center gap-2">
                     Ingresar al sistema
-
-                    <ArrowRight
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                    />
-                  </>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
                 )}
               </button>
+
             </form>
 
-            {/* Seguridad */}
-            <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400">
-              <ShieldCheck className="h-4 w-4" />
-
-              Conexión segura y protegida
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {forgotPasswordOpen && (
-        <ForgotPasswordModal
-          initialEmail={email}
-          onClose={() => setForgotPasswordOpen(false)}
-          onSuccess={(recoveredEmail) => {
-            setEmail(recoveredEmail);
-            setPassword("");
-            setForgotPasswordOpen(false);
-            setError("");
-            setNotice("Contraseña restablecida. Ya puedes iniciar sesión con tu nueva contraseña.");
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function ForgotPasswordModal({ initialEmail, onClose, onSuccess }) {
-  const [step, setStep] = useState("email");
-  const [email, setEmail] = useState(initialEmail || "");
-  const [form, setForm] = useState({ code: "", new_password: "", confirm_password: "" });
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === "Escape" && !loading) onClose();
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [loading, onClose]);
-
-  const requestCode = async (event) => {
-    event.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail || loading) return;
-
-    try {
-      setLoading(true);
-      setError("");
-      const response = await api.post("/auth/password-reset/request", { email: normalizedEmail });
-      setEmail(normalizedEmail);
-      setMessage(response.data?.message || "Revisa tu correo para obtener el código.");
-      setStep("reset");
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "No fue posible enviar el código de recuperación."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetPassword = async (event) => {
-    event.preventDefault();
-    setError("");
-
-    if (form.code.length !== 6) {
-      setError("El código debe contener 6 dígitos.");
-      return;
-    }
-    if (form.new_password.length < 8) {
-      setError("La nueva contraseña debe tener al menos 8 caracteres.");
-      return;
-    }
-    if (form.new_password !== form.confirm_password) {
-      setError("Las nuevas contraseñas no coinciden.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await api.post("/auth/password-reset/confirm", { email, ...form });
-      onSuccess(email);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "No fue posible restablecer la contraseña."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && !loading && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 id="reset-title" className="font-bold text-slate-900">Recuperar contraseña</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {step === "email" ? "Te enviaremos un código de verificación." : `Ingresa el código enviado a ${email}.`}
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} disabled={loading} aria-label="Cerrar recuperación de contraseña" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={step === "email" ? requestCode : resetPassword} className="space-y-4 p-6">
-          {error && <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          {message && step === "reset" && <div role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">{message}</div>}
-
-          {step === "email" ? (
-            <div>
-              <label htmlFor="recovery-email" className="mb-1.5 block text-sm font-medium text-slate-700">Correo electrónico</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input id="recovery-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required autoFocus disabled={loading} placeholder="tu@correo.com" className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
+            {/* Footer de Seguridad */}
+            <div className="pt-4 border-t border-slate-100 text-center space-y-2">
+              <div className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>Conexión encriptada SSL 256-bit</span>
               </div>
             </div>
-          ) : (
-            <>
-              <div>
-                <label htmlFor="recovery-code" className="mb-1.5 block text-sm font-medium text-slate-700">Código de verificación</label>
-                <input id="recovery-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.replace(/\D/g, "") }))} required autoFocus disabled={loading} placeholder="000000" className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-center text-xl font-bold tracking-[0.35em] outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
-              </div>
 
-              <RecoveryPasswordField id="recovery-new-password" label="Nueva contraseña" value={form.new_password} onChange={(value) => setForm((current) => ({ ...current, new_password: value }))} visible={showPasswords} onToggle={() => setShowPasswords((visible) => !visible)} />
-              <RecoveryPasswordField id="recovery-confirm-password" label="Confirmar nueva contraseña" value={form.confirm_password} onChange={(value) => setForm((current) => ({ ...current, confirm_password: value }))} visible={showPasswords} onToggle={() => setShowPasswords((visible) => !visible)} />
+          </div>
+        </div>
 
-              <button type="button" onClick={requestCode} disabled={loading} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50">Reenviar código</button>
-            </>
-          )}
-
-          <button type="submit" disabled={loading} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
-            {loading ? "Procesando..." : step === "email" ? "Enviar código" : "Guardar nueva contraseña"}
-          </button>
-        </form>
       </div>
     </div>
   );
 }
 
-function RecoveryPasswordField({ id, label, value, onChange, visible, onToggle }) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
-      <div className="relative">
-        <LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input id={id} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} minLength={8} maxLength={128} autoComplete="new-password" required className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-11 text-sm outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
-        <button type="button" onClick={onToggle} aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Etiqueta de característica del sistema.
- */
-function Feature({ text }) {
-  return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-indigo-100 backdrop-blur">
-      {text}
-    </span>
-  );
-}
