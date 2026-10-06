@@ -16,23 +16,18 @@ import {
   Shield,
 } from "lucide-react";
 import api from "../services/api";
+import {
+  MODULES,
+  DEFAULT_PERMISSIONS,
+  buildUserPermissions,
+  hasModulePermission,
+} from "../utils/permissions";
 
-const MODULES = [
-  { id: "servicios", label: "Servicios" },
-  { id: "clientes", label: "Clientes" },
-  { id: "equipos", label: "Equipos" },
-  { id: "productos", label: "Productos / Inventario" },
-  { id: "pagos", label: "Pagos" },
-  { id: "comprobantes", label: "Comprobantes / Invoices" },
-];
-
-const DEFAULT_PERMISSIONS = {
-  servicios: { ver: true, crear: true, editar: true, eliminar: false },
-  clientes: { ver: true, crear: true, editar: true, eliminar: false },
-  equipos: { ver: true, crear: true, editar: true, eliminar: false },
-  productos: { ver: true, crear: false, editar: false, eliminar: false },
-  pagos: { ver: false, crear: false, editar: false, eliminar: false },
-  comprobantes: { ver: false, crear: false, editar: false, eliminar: false },
+const ROLE_LABELS = {
+  SUPERADMIN: "Superadmin Global",
+  ADMIN: "Administrador (Acceso Total)",
+  TECNICO: "Técnico",
+  VENDEDOR: "Vendedor",
 };
 
 const EMPTY_FORM = {
@@ -40,19 +35,13 @@ const EMPTY_FORM = {
   nombre: "",
   email: "",
   password: "",
-  rol_id: 2, // Default Técnico (2) or Vendedor (3)
+  rol_id: 3, // Default Técnico (3 en DB)
   permisos: DEFAULT_PERMISSIONS,
-};
-
-const ROLE_LABELS = {
-  SUPERADMIN: "Superadmin Global",
-  ADMIN: "Administrador",
-  TECNICO: "Técnico",
-  VENDEDOR: "Vendedor",
 };
 
 export function Users() {
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -63,17 +52,22 @@ export function Users() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await api.get("/users/");
-      setUsers(response.data);
+      const [usersRes, rolesRes] = await Promise.all([
+        api.get("/users/"),
+        api.get("/users/roles"),
+      ]);
+
+      setUsers(usersRes.data);
+      setRoles(rolesRes.data);
     } catch (err) {
       console.error(err);
       setError(
-        err.response?.data?.detail || "No se pudieron cargar los usuarios."
+        err.response?.data?.detail || "No se pudieron cargar los datos de usuarios."
       );
     } finally {
       setLoading(false);
@@ -81,12 +75,17 @@ export function Users() {
   };
 
   useEffect(() => {
-    loadUsers();
+    loadData();
   }, []);
 
   const openCreateModal = () => {
+    const defaultTech = roles.find((r) => r.nombre === "TECNICO")?.id || 3;
     setEditingUser(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      rol_id: defaultTech,
+      permisos: buildUserPermissions(null),
+    });
     setFormError("");
     setShowModal(true);
   };
@@ -99,7 +98,7 @@ export function Users() {
       email: user.email,
       password: "", // Dejar vacia si no cambia
       rol_id: user.rol_id,
-      permisos: user.permisos || DEFAULT_PERMISSIONS,
+      permisos: buildUserPermissions(user.permisos),
     });
     setFormError("");
     setShowModal(true);
@@ -191,7 +190,7 @@ export function Users() {
         });
       }
 
-      await loadUsers();
+      await loadData();
       closeModal();
     } catch (err) {
       console.error(err);
@@ -214,6 +213,11 @@ export function Users() {
   const adminUsers = users.filter(
     (user) => user.rol?.nombre === "ADMIN" || user.rol?.nombre === "SUPERADMIN"
   ).length;
+
+  const selectedRoleObj = roles.find((r) => r.id === Number(form.rol_id));
+  const isAdminSelected = selectedRoleObj
+    ? selectedRoleObj.nombre === "ADMIN" || selectedRoleObj.nombre === "SUPERADMIN"
+    : Number(form.rol_id) === 2;
 
   return (
     <div className="space-y-6">
@@ -333,7 +337,7 @@ export function Users() {
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {MODULES.map((m) => {
-                            const hasAccess = user.permisos?.[m.id]?.ver;
+                            const hasAccess = hasModulePermission(user, m.id, "ver");
                             return (
                               <span
                                 key={m.id}
@@ -439,15 +443,25 @@ export function Users() {
                     onChange={handleChange}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                   >
-                    <option value="2">Técnico</option>
-                    <option value="3">Vendedor</option>
-                    <option value="1">Administrador (Acceso Total)</option>
+                    {roles.length > 0 ? (
+                      roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {ROLE_LABELS[r.nombre] || r.nombre}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="3">Técnico</option>
+                        <option value="4">Vendedor</option>
+                        <option value="2">Administrador (Acceso Total)</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
 
               {/* MATRIZ DE PERMISOS GRANULARES */}
-              {Number(form.rol_id) !== 1 && (
+              {!isAdminSelected && (
                 <div className="pt-3 border-t border-slate-200 space-y-3">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-indigo-600" />

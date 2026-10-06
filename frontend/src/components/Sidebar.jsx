@@ -21,6 +21,7 @@ import {
 
 import { NavLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { hasModulePermission } from "../utils/permissions";
 
 const menu = [
   {
@@ -155,12 +156,13 @@ export function Sidebar({ open, onClose }) {
       return {
         ...section,
         items: section.items.filter((item) => {
-          // Check role first
+          // 1. Validar por rol
           if (!item.roles.includes(role)) return false;
-          // Check granular permissions if defined
-          if (user?.permisos && item.module && item.module !== "superadmin" && item.module !== "dashboard") {
-            const modPerms = user.permisos[item.module];
-            if (modPerms && modPerms.ver === false) return false;
+          // 2. Validar permiso granular si está definido para el módulo
+          if (item.module && item.module !== "superadmin" && item.module !== "dashboard") {
+            if (!hasModulePermission(user, item.module, "ver")) {
+              return false;
+            }
           }
           return true;
         }),

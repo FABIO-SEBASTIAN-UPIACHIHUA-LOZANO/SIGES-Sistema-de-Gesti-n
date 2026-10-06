@@ -14,6 +14,7 @@ import {
 } from "./context/AuthContext";
 
 import { Layout } from "./components/Layout";
+import { hasModulePermission } from "./utils/permissions";
 
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -44,7 +45,7 @@ function getRole(user) {
 }
 
 
-function ProtectedRoute({ children, roles }) {
+function ProtectedRoute({ children, roles, module }) {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
@@ -71,6 +72,10 @@ function ProtectedRoute({ children, roles }) {
     if (!roles.includes(role)) {
       return <Navigate to="/" replace />;
     }
+  }
+
+  if (module && !hasModulePermission(user, module, "ver")) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -136,6 +141,7 @@ export default function App() {
                     "ADMIN",
                     "TECNICO",
                   ]}
+                  module="servicios"
                 >
                   <Services />
                 </ProtectedRoute>
@@ -150,6 +156,7 @@ export default function App() {
                     "ADMIN",
                     "TECNICO",
                   ]}
+                  module="servicios"
                 >
                   <ServiceDetail />
                 </ProtectedRoute>
@@ -170,6 +177,7 @@ export default function App() {
                     "TECNICO",
                     "VENDEDOR",
                   ]}
+                  module="clientes"
                 >
                   <Clients />
                 </ProtectedRoute>
@@ -190,6 +198,7 @@ export default function App() {
                     "TECNICO",
                     "VENDEDOR",
                   ]}
+                  module="equipos"
                 >
                   <Equipment />
                 </ProtectedRoute>
@@ -208,6 +217,7 @@ export default function App() {
                     "TECNICO",
                     "VENDEDOR",
                   ]}
+                  module="licencias"
                 >
                   <Licenses />
                 </ProtectedRoute>
@@ -228,6 +238,7 @@ export default function App() {
                     "TECNICO",
                     "VENDEDOR",
                   ]}
+                  module="productos"
                 >
                   <Inventory />
                 </ProtectedRoute>
@@ -246,6 +257,7 @@ export default function App() {
                     "ADMIN",
                     "VENDEDOR",
                   ]}
+                  module="pagos"
                 >
                   <Payments />
                 </ProtectedRoute>
@@ -264,6 +276,7 @@ export default function App() {
                     "ADMIN",
                     "VENDEDOR",
                   ]}
+                  module="comprobantes"
                 >
                   <Invoices />
                 </ProtectedRoute>

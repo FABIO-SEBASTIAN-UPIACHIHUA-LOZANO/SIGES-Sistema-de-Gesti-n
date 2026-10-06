@@ -11,6 +11,18 @@ from app.services.audit_service import log_audit
 
 router = APIRouter()
 
+@router.get("/roles")
+def get_roles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    from app.models.role import Role
+    query = db.query(Role)
+    if current_user.rol.nombre != "SUPERADMIN":
+        query = query.filter(Role.nombre != "SUPERADMIN")
+    roles = query.all()
+    return [{"id": r.id, "nombre": r.nombre} for r in roles]
+
 @router.get("/", response_model=List[UserResponse])
 def get_users(
     empresa_id: Optional[int] = None,
@@ -24,7 +36,7 @@ def get_users(
         if empresa_id:
             query = query.filter(User.empresa_id == empresa_id)
     else:
-        # Si es ADMIN de empresa, filtrar estrictamente por su propia empresa
+        # Si es ADMIN de empresa, filtrar strictly por su propia empresa
         query = query.filter(User.empresa_id == current_user.empresa_id)
         
     return query.order_by(User.created_at.desc()).all()
@@ -72,6 +84,7 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    db.expire(user, ["rol"])
     
     log_audit(
         db,
@@ -110,6 +123,7 @@ def update_user(
 
     db.commit()
     db.refresh(user)
+    db.expire(user, ["rol"])
 
     log_audit(
         db,
